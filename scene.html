@@ -1,0 +1,81 @@
+
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<title>my project</title>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+</head>	
+
+<body>
+
+<!--phong_vertex.glsl-->
+<script id="phongvertex-shader" type="x-shader/x-vertex">
+	varying vec2 vUv;
+	varying vec3 vNormal;
+	varying vUSE_MAPec3 vViewPosition;
+	void main() {
+    vUv = uv;
+    vNormal = normalize( normalMatrix * normal );
+    vec3 transformed = vec3( position );
+    vec4 mvPosition = modelViewMatrix * vec4( transformed, 1.0 );
+    vViewPosition = - mvPosition.xyz;
+    gl_Position = projectionMatrix * mvPosition;
+}
+</script>
+
+<!--phong_fragment.glsl-->
+<script id="phongfragment-shader" type="x-shader/x-fragment">
+	uniform vec3 diffuse;
+	uniform float opacity;
+	uniform vec3 specular;
+	uniform float shininess;
+	uniform sampler2D map;
+	uniform vec3 ambientColor;
+	uniform vec3 directColor;
+	uniform vec3 directDirection;
+	varying vec2 vUv;
+	varying vec3 vNormal;
+	varying vec3 vViewPosition;
+	#define RECIPROCAL_PI 0.31830988618
+	vec3 F_Schlick( const in vec3 specularColor, const in float dotLH ) {
+	float fresnel = exp2( ( -5.55473 * dotLH - 6.98316 ) * dotLH );
+	return ( 1.0 - specularColor ) * fresnel + specularColor;
+}
+	float D_BlinnPhong( const in float shininess, const in float dotNH ) {
+	return RECIPROCAL_PI * ( shininess * 0.5 + 1.0 ) * pow( dotNH, shininess );
+}
+	void main() {
+    vec4 diffuseColor = vec4( diffuse, opacity );
+    vec4 texelColor = texture2D( map, vUv );
+    diffuseColor *= texelColor;
+    vec3 indirectDiffuse = ambientColor * RECIPROCAL_PI * diffuseColor.rgb;
+    vec3 normal = normalize( vNormal );
+    float dotNL = clamp( dot( normal, directDirection ), 0.0, 1.0 );
+    vec3 irradiance = dotNL * directColor;
+    vec3 directDiffuse = irradiance * RECIPROCAL_PI * diffuseColor.rgb;
+    vec3 halfDir = normalize( directDirection + normalize( vViewPosition ) );
+	float dotNH = clamp( dot( normal, halfDir ), 0.0, 1.0 );
+	float dotLH = clamp( dot( directDirection, halfDir ), 0.0, 1.0 );
+	vec3 F = F_Schlick( specular, dotLH );
+	float D = D_BlinnPhong( shininess, dotNH );
+	vec3 directSpecular = F * ( 0.25 * D );
+	vec3 outgoingLight = indirectDiffuse + directDiffuse + directSpecular;
+    gl_FragColor = vec4( outgoingLight, diffuseColor.a );
+}
+</script>
+<script src="js/libs/dat.gui.min.js"></script>
+	<script src="build/three.js"></script>
+	<script src="js/loaders/GLTFLoader.js"></script>
+	<script src="js/controls/OrbitControls.js"></script>
+	<script src="js/objects/Sky.js"></script>
+	<script src="js/Detector.js"></script>
+	<script src="js/libs/stats.min.js"></script>
+	<script src="build/three.proton.min.js"></script>
+
+
+	<script src="scene.js" type="module"></script>
+</body>
+
+</html>
